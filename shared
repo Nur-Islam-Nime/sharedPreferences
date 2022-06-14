@@ -1,0 +1,118 @@
+import 'dart:io';
+import 'package:fcs/screen/login-screen.dart';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class profile extends StatefulWidget {
+  @override
+  _profileState createState() => _profileState();
+}
+
+class _profileState extends State<profile> {
+  File? imageFile;
+
+  @override
+  void initState() {
+    // TODO: implement initState
+
+    super.initState();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SingleChildScrollView(
+        child: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                children: [
+                  Container(
+                    child: CircleAvatar(
+                      radius: 100,
+                      child: displaySignatureFile(),
+                    ),
+                  ),
+                  TextButton(
+                      onPressed: () {
+                        showDialog(
+                            context: context,
+                            builder: (context) {
+                              return Dialog(
+                                child: Container(
+                                  height: 150,
+                                  child: Column(
+                                    children: [
+                                      TextButton(
+                                        onPressed: () {
+                                          _getFromcamera();
+                                        },
+                                        child: const Text('Camera'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () {
+                                          _getFromGallery();
+                                        },
+                                        child: const Text('gallery'),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            });
+
+                        //
+                      },
+                      child: const Text('Choose Image')),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  _getFromGallery() async {
+    PickedFile? pickedFile = await ImagePicker().getImage(
+      source: ImageSource.gallery,
+      maxWidth: 300,
+      maxHeight: 300,
+    );
+    if (pickedFile != null) {
+      setState(() {
+        imageFile = File(pickedFile.path);
+      });
+    }
+  }
+
+  _getFromcamera() async {
+    PickedFile? pickedFile = await ImagePicker().getImage(
+      source: ImageSource.camera,
+      maxWidth: 300,
+      maxHeight: 300,
+    );
+    if (pickedFile != null) {
+      setState(() {
+        imageFile = File(pickedFile.path);
+      });
+    }
+  }
+
+  Widget displaySignatureFile() {
+    return SizedBox(
+      height: 480.0,
+      width: 480.0,
+      child: imageFile == null
+          ? Icon(Icons.camera_alt_outlined, size: 100)
+          : ClipRRect(
+              borderRadius: BorderRadius.circular(150.0),
+              child: Image.file(
+                imageFile!,
+                fit: BoxFit.fill,
+              )),
+    );
+  }
+}
