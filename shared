@@ -1,73 +1,431 @@
-import 'dart:io';
-import 'package:fcs/screen/login-screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:fcs/widget/CustomListtile.dart';
+import 'package:fcs/widget/CustomUserDetails.dart';
+import 'package:fcs/widget/customSubmitButton.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_custom_clippers/flutter_custom_clippers.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:rxdart/rxdart.dart';
+import 'dart:io';
+import 'UsersDeposit.dart';
 
-class profile extends StatefulWidget {
+class userDashboard extends StatefulWidget {
+  const userDashboard({Key? key}) : super(key: key);
+
   @override
-  _profileState createState() => _profileState();
+  State<userDashboard> createState() => _userDashboardState();
 }
 
-class _profileState extends State<profile> {
-  File? imageFile;
+class _userDashboardState extends State<userDashboard> {
+  File? profilepic;
 
-  @override
-  void initState() {
-    // TODO: implement initState
+  getImageFromGrellery() async {
+    XFile? selectedImage =
+        await ImagePicker().pickImage(source: ImageSource.gallery);
 
-    super.initState();
+    if (selectedImage != null) {
+      File convertedFile = File(selectedImage.path);
+      setState(() {
+        profilepic = convertedFile;
+      });
+      print("Image selected!");
+    } else {
+      print("No image selected!");
+    }
+  }
+
+  uploadImage() async {
+    UploadTask uploadTask = FirebaseStorage.instance
+        .ref()
+        .child("UserProfilePicture")
+        .child(FirebaseAuth.instance.currentUser!.uid)
+        .putFile(profilepic!);
+    TaskSnapshot taskSnapshot = await uploadTask;
+    String downloadUrl = await taskSnapshot.ref.getDownloadURL();
+
+    FirebaseFirestore.instance
+        .collection("User-data")
+        .doc(FirebaseAuth.instance.currentUser!.uid)
+        .update({'userImage': downloadUrl})
+        .then((value) => print("User Updated"))
+        .catchError((error) => print("Failed to update user: $error"));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SingleChildScrollView(
-        child: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Column(
-                children: [
-                  Container(
-                    child: CircleAvatar(
-                      radius: 100,
-                      child: displaySignatureFile(),
-                    ),
-                  ),
-                  TextButton(
-                      onPressed: () {
-                        showDialog(
-                            context: context,
-                            builder: (context) {
-                              return Dialog(
-                                child: Container(
-                                  height: 150,
-                                  child: Column(
-                                    children: [
-                                      TextButton(
-                                        onPressed: () {
-                                          _getFromcamera();
-                                        },
-                                        child: const Text('Camera'),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height,
+            child: Column(
+              children: [
+                Expanded(
+                    flex: 2,
+                    child: ClipPath(
+                      clipper: WaveClipperTwo(flip: true),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Container(
+                            decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                              colors: [Color(0xffce546e), Color(0xff8d4f96)],
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                            )),
+                          ),
+                          Positioned(
+                              child: Padding(
+                            padding: const EdgeInsets.all(28.0),
+                            child: StreamBuilder(
+                                stream: FirebaseFirestore.instance
+                                    .collection("User-data")
+                                    .doc(FirebaseAuth.instance.currentUser!.uid)
+                                    .snapshots(),
+                                builder: (BuildContext context,
+                                    AsyncSnapshot snapshot) {
+                                  var data = snapshot.data;
+                                  if (snapshot.hasError) {
+                                    return const Text('Something went wrong');
+                                  }
+
+                                  if (snapshot.connectionState ==
+                                      ConnectionState.waiting) {
+                                    return const Text("Loading");
+                                  }
+                                  if (data == null) {
+                                    return const Center(
+                                      child: CircularProgressIndicator(),
+                                    );
+                                  }
+                                  return ListTile(
+                                    title: Text(
+                                      data['Name'],
+                                      style: const TextStyle(
+                                        fontSize: 24,
+                                        color: Colors.white,
                                       ),
-                                      TextButton(
-                                        onPressed: () {
-                                          _getFromGallery();
-                                        },
-                                        child: const Text('gallery'),
+                                    ),
+                                    // subtitle: Text(),
+                                    trailing: InkWell(
+                                      onTap: () {
+                                        dialog();
+                                      },
+                                      child:  CircleAvatar(
+                                        radius: 50,
+                                        backgroundImage:
+                                             NetworkImage("userImage"),
+                                        // child: Icon(Icons.add_a_photo_outlined),
+                                      ),
+                                    ),
+                                  );
+                                }),
+                          )),
+                        ],
+                      ),
+                    )),
+                Expanded(
+                    flex: 3,
+                    child: Padding(
+                      padding: const EdgeInsets.all(18.0),
+                      child: Column(
+                        // mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        // crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          StreamBuilder(
+                            stream: FirebaseFirestore.instance
+                                .collection("User-data")
+                                .doc(FirebaseAuth.instance.currentUser!.uid)
+                                .snapshots(),
+                            builder:
+                                (BuildContext context, AsyncSnapshot snapshot) {
+                              var data = snapshot.data;
+                              if (snapshot.hasError) {
+                                return const Text('Something went wrong');
+                              }
+
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                                return const Text("Loading");
+                              }
+                              if (data == null) {
+                                return const Center(
+                                  child: CircularProgressIndicator(),
+                                );
+                              }
+                              return Column(
+                                children: [
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      // CircleAvatar(
+                                      //   child: Container(
+                                      //     child: (Image.network(data["image"])),
+                                      //
+                                      //   ),
+                                      // ),
+                                      const Text("My Current Balance :"),
+                                      Container(
+                                        width: 130,
+                                        decoration: BoxDecoration(
+                                          border: Border.all(
+                                              color: const Color(0xff707070)),
+                                          borderRadius:
+                                              BorderRadius.circular(5),
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(
+                                              left: 20,
+                                              right: 20,
+                                              top: 2,
+                                              bottom: 2),
+                                          child: Text(
+                                              data['Balance'].toString(),
+                                              style: const TextStyle(
+                                                  fontSize: 16)),
+                                        ),
                                       ),
                                     ],
                                   ),
-                                ),
+                                  const SizedBox(
+                                    height: 10,
+                                  ),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text("Deu :"),
+                                      Container(
+                                        width: 130,
+                                        decoration: BoxDecoration(
+                                          border: Border.all(
+                                              color: const Color(0xff707070)),
+                                          borderRadius:
+                                              BorderRadius.circular(5),
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(
+                                              left: 20,
+                                              right: 20,
+                                              top: 2,
+                                              bottom: 2),
+                                          child: Text(data['Deu'].toString(),
+                                              style: const TextStyle(
+                                                  fontSize: 16)),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               );
-                            });
+                            },
+                          ),
+                          const SizedBox(
+                            height: 10,
+                          ),
+                          StreamBuilder<double?>(
+                            stream: CombineLatestStream.combine2(
+                              getProfitFundData(),
+                              getUserBalanceData(),
+                              (double a, double b) => a + b,
+                            ),
+                            builder: (context, snapshort) {
+                              if (snapshort.connectionState ==
+                                  ConnectionState.waiting) {
+                                return const Center(
+                                    child: CircularProgressIndicator());
+                              }
+                              if (snapshort.hasData) {
+                                double data = snapshort.data!;
+                                return Center(
+                                    child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text("Total fund of FCS :"),
+                                    Container(
+                                      width: 130,
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                            color: const Color(0xff707070)),
+                                        borderRadius: BorderRadius.circular(5),
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(
+                                            left: 20,
+                                            right: 20,
+                                            top: 2,
+                                            bottom: 2),
+                                        child: Text("$data",
+                                            style:
+                                                const TextStyle(fontSize: 16)),
+                                      ),
+                                    ),
+                                  ],
+                                ));
+                              }
 
-                        //
-                      },
-                      child: const Text('Choose Image')),
-                ],
-              ),
+                              return const Text("No data ");
+                            },
+                          ),
+                          const SizedBox(
+                            height: 10,
+                          ),
+                          StreamBuilder<double?>(
+                              stream: getUseOfFundData(),
+                              builder: (_, snapshort) {
+                                if (snapshort.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return const Center(
+                                      child: CircularProgressIndicator());
+                                }
+                                if (snapshort.hasData) {
+                                  double data = snapshort.data!;
+                                  return Center(
+                                      child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text("Total usable funds :"),
+                                      Container(
+                                        width: 130,
+                                        decoration: BoxDecoration(
+                                          border: Border.all(
+                                              color: const Color(0xff707070)),
+                                          borderRadius:
+                                              BorderRadius.circular(5),
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(
+                                              left: 20,
+                                              right: 20,
+                                              top: 2,
+                                              bottom: 2),
+                                          child: Text("$data",
+                                              style: const TextStyle(
+                                                  fontSize: 16)),
+                                        ),
+                                      ),
+                                    ],
+                                  ));
+                                }
+
+                                return const Text("No data ");
+                              }),
+                          const SizedBox(
+                            height: 10,
+                          ),
+                          StreamBuilder<double?>(
+                              stream: getProfitFundData(),
+                              builder: (_, snapshort) {
+                                if (snapshort.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return const Center(
+                                      child: CircularProgressIndicator());
+                                }
+                                if (snapshort.hasData) {
+                                  double data = snapshort.data!;
+                                  return Center(
+                                      child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text("Profit funds :"),
+                                      Container(
+                                        width: 130,
+                                        decoration: BoxDecoration(
+                                          border: Border.all(
+                                              color: const Color(0xff707070)),
+                                          borderRadius:
+                                              BorderRadius.circular(5),
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(
+                                              left: 20,
+                                              right: 20,
+                                              top: 2,
+                                              bottom: 2),
+                                          child: Text("$data",
+                                              style: const TextStyle(
+                                                  fontSize: 16)),
+                                        ),
+                                      ),
+                                    ],
+                                  ));
+                                }
+
+                                return const Text("No data ");
+                              }),
+                          const SizedBox(
+                            height: 10,
+                          ),
+                          StreamBuilder<double?>(
+                            stream: CombineLatestStream.combine3(
+                              getProfitFundData(),
+                              getUserBalanceData(),
+                              getUseOfFundData(),
+                              (double a, double b, double c) => (a + b) - c,
+                            ),
+                            builder: (context, snapshort) {
+                              if (snapshort.connectionState ==
+                                  ConnectionState.waiting) {
+                                return const Center(
+                                    child: CircularProgressIndicator());
+                              }
+                              if (snapshort.hasData) {
+                                double data = snapshort.data!;
+                                return Center(
+                                    child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text("Current funds :"),
+                                    Container(
+                                      width: 130,
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                            color: const Color(0xff707070)),
+                                        borderRadius: BorderRadius.circular(5),
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(
+                                            left: 20,
+                                            right: 20,
+                                            top: 2,
+                                            bottom: 2),
+                                        child: Text("$data",
+                                            style:
+                                                const TextStyle(fontSize: 16)),
+                                      ),
+                                    ),
+                                  ],
+                                ));
+                              }
+
+                              return const Text("No data ");
+                            },
+                          ),
+                          const SizedBox(
+                            height: 10,
+                          ),
+                          Column(
+                            children: [
+                              customSubmitButton("Deposit", () {
+                                Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (context) => UserDeposit()));
+                              })
+                            ],
+                          ),
+                        ],
+                      ),
+                    ))
+              ],
             ),
           ),
         ),
@@ -75,44 +433,81 @@ class _profileState extends State<profile> {
     );
   }
 
-  _getFromGallery() async {
-    PickedFile? pickedFile = await ImagePicker().getImage(
-      source: ImageSource.gallery,
-      maxWidth: 300,
-      maxHeight: 300,
-    );
-    if (pickedFile != null) {
-      setState(() {
-        imageFile = File(pickedFile.path);
-      });
-    }
+  dialog() {
+    return showDialog(
+        context: context,
+        builder: (context) {
+          return Padding(
+            padding: const EdgeInsets.only(top: 350.0),
+            child: Dialog(
+              child: Container(
+                height: MediaQuery.of(context).size.height / 4,
+                width: MediaQuery.of(context).size.width / 2.5,
+                decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(5),
+                    boxShadow: const [
+                      BoxShadow(
+                          blurRadius: 10,
+                          color: Colors.black,
+                          offset: Offset(1, 3))
+                    ]),
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      CircleAvatar(
+                        radius: 50,
+                        backgroundImage: (profilepic != null)
+                            ? FileImage(profilepic!)
+                            : null,
+                      ),
+                      TextButton(
+                          onPressed: () {
+                            getImageFromGrellery();
+                          },
+                          child: Text("pick image")),
+                      TextButton(
+                          onPressed: () {
+                            uploadImage();
+                          },
+                          child: Text("Upload image"))
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        });
   }
+}
 
-  _getFromcamera() async {
-    PickedFile? pickedFile = await ImagePicker().getImage(
-      source: ImageSource.camera,
-      maxWidth: 300,
-      maxHeight: 300,
-    );
-    if (pickedFile != null) {
-      setState(() {
-        imageFile = File(pickedFile.path);
-      });
-    }
+Stream<double> getProfitFundData() async* {
+  final result =
+      await FirebaseFirestore.instance.collection('Profit-Way').get();
+  double totalFundAmount = 0;
+  for (var doc in result.docs) {
+    totalFundAmount += doc['Amount'];
   }
+  yield totalFundAmount;
+}
 
-  Widget displaySignatureFile() {
-    return SizedBox(
-      height: 480.0,
-      width: 480.0,
-      child: imageFile == null
-          ? Icon(Icons.camera_alt_outlined, size: 100)
-          : ClipRRect(
-              borderRadius: BorderRadius.circular(150.0),
-              child: Image.file(
-                imageFile!,
-                fit: BoxFit.fill,
-              )),
-    );
+Stream<double> getUserBalanceData() async* {
+  final result = await FirebaseFirestore.instance.collection('User-data').get();
+  double userTotalAmount = 0;
+  for (var doc in result.docs) {
+    userTotalAmount += doc['Balance'];
   }
+  yield userTotalAmount;
+}
+
+Stream<double> getUseOfFundData() async* {
+  final result =
+      await FirebaseFirestore.instance.collection('Use-of-fund').get();
+  double userTotalAmount = 0;
+  for (var doc in result.docs) {
+    userTotalAmount += doc['Amount'];
+  }
+  yield userTotalAmount;
 }
